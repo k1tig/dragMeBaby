@@ -16,8 +16,7 @@ import (
 )
 
 type model struct {
-	stopwatch time.Duration
-
+	stopwatch               time.Duration
 	sub                     chan struct{}
 	keys                    keyMap
 	help                    help.Model
@@ -51,7 +50,6 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Help},           // second column
 		{k.Quit, k.Action}, // first column
-
 	}
 }
 
@@ -129,7 +127,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.stg++
 				m.timer = time.Now()
 				m.active = true
-
 			}
 		}
 		return m, waitForActivity(m.sub)
@@ -187,7 +184,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				}
 			}
-
 		}
 	}
 	return m, waitForActivity(m.sub)
