@@ -76,7 +76,7 @@ func newModel() model {
 		stg:         0,
 		stgT:        times{preStg: 2, fullStg: 2, Yellow: 1.2, Green: .400},
 		stageStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
-		yellowStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
+		yellowStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00")),
 		greenStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
 		greyStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("0")),
 	}
