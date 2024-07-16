@@ -121,6 +121,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// its view as needed.
 		m.help.Width = msg.Width
 
+	// make better logic you dunce
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -242,6 +243,7 @@ func main() {
 	}
 }
 
+// this is super ugly
 func (m model) View() string {
 	var raceTime string
 	var tree string
@@ -299,7 +301,7 @@ func (m model) View() string {
      ||||
 --------------
 `
-
+	// this is also ugly
 	height := 2 - strings.Count(tree, "\n") - strings.Count(helpView, "\n")
 	if !m.falseStart {
 		tree = line1 + "\n" + stage1 + "\n" + stage2 + "\n" + line2 + "\n" + yellows + "\n" + yellows + "\n" + yellows + "\n" + line3 + "\n" + greens + "\n" + bottoms + "\n" + raceTime
