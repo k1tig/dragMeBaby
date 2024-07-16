@@ -16,18 +16,20 @@ import (
 )
 
 type model struct {
-	stopwatch               time.Duration
-	sub                     chan struct{}
-	keys                    keyMap
-	help                    help.Model
-	active                  bool
-	quitting                bool
-	stg                     int
-	stgT                    times
-	timer                   time.Time //	station    stations
-	stageStyle, yellowStyle lipgloss.Style
-	greenStyle, greyStyle   lipgloss.Style
-	Help                    help.Model
+	stopwatch                          time.Duration
+	sub                                chan struct{}
+	keys                               keyMap
+	help                               help.Model
+	active                             bool
+	quitting                           bool
+	stg                                int
+	stgT                               times
+	timer                              time.Time //	station    stations
+	raceMsg                            string
+	falseStart                         bool
+	stageStyle, yellowStyle            lipgloss.Style
+	greenStyle, greyStyle, jumpedStyle lipgloss.Style
+	Help                               help.Model
 }
 
 type times struct {
@@ -41,6 +43,7 @@ type keyMap struct {
 	Quit   key.Binding
 	Action key.Binding
 	Help   key.Binding
+	Reset  key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
@@ -48,7 +51,7 @@ func (k keyMap) ShortHelp() []key.Binding {
 }
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Help},           // second column
+		{k.Help}, {k.Reset}, // second column
 		{k.Quit, k.Action}, // first column
 	}
 }
@@ -66,6 +69,10 @@ var keys = keyMap{
 		key.WithKeys("?"),
 		key.WithHelp("(?)", "toggle help"),
 	),
+	Reset: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("(r)", "Reset"),
+	),
 }
 
 func newModel() model {
@@ -78,7 +85,8 @@ func newModel() model {
 		stageStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
 		yellowStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00")),
 		greenStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
-		greyStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("0")),
+		greyStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("#798486")),
+		jumpedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#EF333F")),
 	}
 }
 func (m model) Init() tea.Cmd {
@@ -127,20 +135,47 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.stg++
 				m.timer = time.Now()
 				m.active = true
+				m.raceMsg = " --FINISHED--"
+			} else {
+				m.stg = 99
+				m.active = false
+				m.falseStart = true
+				m.raceMsg = "  --FALSE START--"
+				m.timer = time.Now()
+
 			}
+		case key.Matches(msg, m.keys.Reset):
+			m.stg = 99
+			m.active = false
+			m.raceMsg = "   --RESET--"
+			m.timer = time.Now()
+
 		}
 		return m, waitForActivity(m.sub)
 	case responseMsg:
 		switch {
+		case !m.active && m.raceMsg != "":
+			x := m.timer.Add(time.Second * 5)
+			current := time.Now()
+			if current.After(x) {
+				m.stg = 0
+				m.timer = current
+				m.raceMsg = ""
+
+			}
+
 		case !m.active && m.stg == 0:
 			now := time.Now()
 			m.timer = now
 			m.active = true
 			m.keys.Action.SetEnabled(true)
+			m.falseStart = false
 		case m.active:
 			switch {
+
 			case m.stg == 0:
-				x := m.timer.Add(time.Millisecond * time.Duration(1000*m.stgT.preStg))
+				x := m.setStgtime(m.stgT.preStg)
+				// x := m.timer.Add(time.Millisecond * time.Duration(1000*m.stgT.preStg))
 				current := time.Now()
 				if current.After(x) {
 					m.stg++
@@ -211,6 +246,7 @@ func (m model) View() string {
 	var raceTime string
 	var tree string
 	var line1, stage1, stage2, line2, yellows, line3, greens, bottoms string
+
 	helpView := m.help.View(m.keys)
 
 	if m.stopwatch > 0 {
@@ -218,34 +254,38 @@ func (m model) View() string {
 	}
 
 	line1 = "______________"
-	if m.stg == 0 {
-		m.greyStyle.Render(tree)
-	}
+	if !m.falseStart {
+		if m.stg >= 1 {
+			stage1 = "|(" + m.stageStyle.Render("oo") + ")=||=(" + m.stageStyle.Render("oo") + ")|"
+		} else {
+			stage1 = "|(" + m.greyStyle.Render("oo") + ")=||=(" + m.greyStyle.Render("oo") + ")|"
+		}
 
-	if m.stg >= 1 {
-		stage1 = "|(" + m.stageStyle.Render("oo") + ")=||=(" + m.stageStyle.Render("oo") + ")|"
+		if m.stg >= 2 {
+			stage2 = "|(" + m.stageStyle.Render("oo") + ")=||=(" + m.stageStyle.Render("oo") + ")|"
+		} else {
+			stage2 = "|(" + m.greyStyle.Render("oo") + ")=||=(" + m.greyStyle.Render("oo") + ")|"
+
+		}
+
+		if m.stg >= 3 {
+			yellows = " |(" + m.yellowStyle.Render("0") + ")=||=(" + m.yellowStyle.Render("0") + ")|"
+		} else {
+			yellows = " |(" + m.greyStyle.Render("0") + ")=||=(" + m.greyStyle.Render("0") + ")|"
+
+		}
+
+		if m.stg >= 4 {
+			greens = " |(" + m.greenStyle.Render("0") + ")=||=(" + m.greenStyle.Render("0") + ")|"
+		} else {
+			greens = " |(" + m.greyStyle.Render("0") + ")=||=(" + m.greyStyle.Render("0") + ")|"
+		}
 	} else {
-		stage1 = "|(" + m.greyStyle.Render("oo") + ")=||=(" + m.greyStyle.Render("oo") + ")|"
-	}
+		stage1 = "|(" + m.jumpedStyle.Render("oo") + ")=||=(" + m.jumpedStyle.Render("oo") + ")|"
+		stage2 = "|(" + m.jumpedStyle.Render("oo") + ")=||=(" + m.jumpedStyle.Render("oo") + ")|"
+		yellows = " |(" + m.jumpedStyle.Render("0") + ")=||=(" + m.jumpedStyle.Render("0") + ")|"
+		greens = " |(" + m.jumpedStyle.Render("0") + ")=||=(" + m.jumpedStyle.Render("0") + ")|"
 
-	if m.stg >= 2 {
-		stage2 = "|(" + m.stageStyle.Render("oo") + ")=||=(" + m.stageStyle.Render("oo") + ")|"
-	} else {
-		stage2 = "|(" + m.greyStyle.Render("oo") + ")=||=(" + m.greyStyle.Render("oo") + ")|"
-
-	}
-
-	if m.stg >= 3 {
-		yellows = " |(" + m.yellowStyle.Render("0") + ")=||=(" + m.yellowStyle.Render("0") + ")|"
-	} else {
-		yellows = " |(" + m.greyStyle.Render("0") + ")=||=(" + m.greyStyle.Render("0") + ")|"
-
-	}
-
-	if m.stg >= 4 {
-		greens = " |(" + m.greenStyle.Render("0") + ")=||=(" + m.greenStyle.Render("0") + ")|"
-	} else {
-		greens = " |(" + m.greyStyle.Render("0") + ")=||=(" + m.greyStyle.Render("0") + ")|"
 	}
 
 	line2 = "  =========="
@@ -259,9 +299,20 @@ func (m model) View() string {
      ||||
 --------------
 `
+
 	height := 2 - strings.Count(tree, "\n") - strings.Count(helpView, "\n")
-	tree = line1 + "\n" + stage1 + "\n" + stage2 + "\n" + line2 + "\n" + yellows + "\n" + yellows + "\n" + yellows + "\n" + line3 + "\n" + greens + "\n" + bottoms + "\n" + raceTime
-	return "\n" + tree + strings.Repeat("\n", height) + helpView
+	if !m.falseStart {
+		tree = line1 + "\n" + stage1 + "\n" + stage2 + "\n" + line2 + "\n" + yellows + "\n" + yellows + "\n" + yellows + "\n" + line3 + "\n" + greens + "\n" + bottoms + "\n" + raceTime
+	} else {
+		tree = line1 + "\n" + stage1 + "\n" + stage2 + "\n" + line2 + "\n" + yellows + "\n" + yellows + "\n" + yellows + "\n" + line3 + "\n" + greens + "\n" + bottoms + "\n" + raceTime
+
+	}
+	return "\n" + m.raceMsg + "\n" + tree + strings.Repeat("\n", height) + helpView
+}
+
+func (m model) setStgtime(stage int) time.Time {
+	x := m.timer.Add(time.Millisecond * time.Duration(1000*stage))
+	return x
 }
 
 //  ____________
